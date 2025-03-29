@@ -1,0 +1,72 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String?
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  raceHistories    RaceHistory[]
+  practiceSessions Practice[]
+}
+
+model Room {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  races       Race[]
+  RaceHistory RaceHistory[]
+}
+
+model Race {
+  id        String    @id @default(uuid())
+  roomId    String
+  room      Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  startTime DateTime  @default(now())
+  endTime   DateTime?
+  createdAt DateTime  @default(now())
+
+  raceHistories RaceHistory[]
+}
+
+model RaceHistory {
+  id        String   @id @default(uuid())
+  raceId    String
+  race      Race     @relation(fields: [raceId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  wpm       Int // Words per minute
+  accuracy  Float // Accuracy percentage
+  raceTime  Int // Time taken in seconds
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Practice {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wpm       Int
+  accuracy  Float
+  duration  Int // Duration in seconds
+  createdAt DateTime @default(now())
+}
