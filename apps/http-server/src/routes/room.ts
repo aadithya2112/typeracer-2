@@ -1,6 +1,10 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "@repo/db/client";
-import { RoomSchema, JoinRoomSchema } from "@repo/schemas/schemas";
+import {
+  RoomSchema,
+  JoinRoomSchema,
+  CreateRaceSchema,
+} from "@repo/schemas/schemas";
 import { authMiddleware } from "../middleware";
 import { z } from "zod";
 
@@ -171,7 +175,8 @@ RoomRouter.get("/:id", async (req: Request, res: Response) => {
   }
 });
 
-// // Join a room
+// Join a room
+// Route 1: Join a room
 RoomRouter.post(
   "/join",
   authMiddleware,
@@ -215,27 +220,13 @@ RoomRouter.post(
         }
       }
 
-      // Get active race in the room or create one if none exists
-      let activeRace = await prisma.race.findFirst({
+      // Get active race in the room
+      const activeRace = await prisma.race.findFirst({
         where: {
           roomId: room.id,
-          endTime: null,
+          isActive: true,
         },
       });
-
-      if (!activeRace) {
-        // Create a sample text for racing (in production, you'd have a proper text selection)
-        const sampleText =
-          "The quick brown fox jumps over the lazy dog. This is a sample text for typing race.";
-
-        // Create a new race
-        activeRace = await prisma.race.create({
-          data: {
-            roomId: room.id,
-            textContent: sampleText,
-          },
-        });
-      }
 
       res.status(200).json({
         success: true,
@@ -244,12 +235,15 @@ RoomRouter.post(
             id: room.id,
             name: room.name,
             isPrivate: room.isPrivate,
+            hasActiveRace: !!activeRace,
           },
-          race: {
-            id: activeRace.id,
-            startTime: activeRace.startTime,
-            textContent: activeRace.textContent,
-          },
+          race: activeRace
+            ? {
+                id: activeRace.id,
+                startTime: activeRace.startTime,
+                textContent: activeRace.textContent,
+              }
+            : null,
         },
         message: "Successfully joined room",
       });
@@ -273,118 +267,220 @@ RoomRouter.post(
   }
 );
 
-// // Leave a room
-// RoomRouter.post("/leave/:raceId", authMiddleware, async (req: Request, res: Response) => {
-//   try {
-//     const { raceId } = req.params;
-//     const { wpm, accuracy, raceTime } = req.body;
+// Route 2: Create a new race in a room
+RoomRouter.post(
+  "/create-race",
+  authMiddleware,
+  async (req: Request, res: Response) => {
+    try {
+      // Validate request body
+      const validatedData = CreateRaceSchema.parse(req.body);
 
-//     // Check if the race exists
-//     const race = await prisma.race.findUnique({
-//       where: {
-//         id: raceId,
-//       },
-//       include: {
-//         room: true,
-//       },
-//     });
+      // Check if room exists
+      const room = await prisma.room.findUnique({
+        where: {
+          id: validatedData.roomId,
+          isActive: true,
+        },
+      });
 
-//     if (!race) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Race not found",
-//       });
-//     }
+      if (!room) {
+        res.status(404).json({
+          success: false,
+          message: "Room not found or inactive",
+        });
+        return;
+      }
 
-//     // Record the race history
-//     if (wpm && accuracy && raceTime) {
-//       await prisma.raceHistory.create({
-//         data: {
-//           raceId: race.id,
-//           userId: req.user.id,
-//           roomId: race.roomId,
-//           wpm: parseInt(wpm),
-//           accuracy: parseFloat(accuracy),
-//           raceTime: parseInt(raceTime),
-//         },
-//       });
-//     }
+      // Check if user is admin, only admins can start a race
+      const isAdmin = room.adminId === req.user?.userId;
+      if (!isAdmin) {
+        res.status(403).json({
+          success: false,
+          message: "Only room admins can create races",
+        });
+        return;
+      }
 
-//     return res.status(200).json({
-//       success: true,
-//       message: "Successfully left room",
-//     });
-//   } catch (error) {
-//     return res.status(500).json({
-//       success: false,
-//       message: "Failed to leave room",
-//       error: error.message,
-//     });
-//   }
-// });
+      // Check if there's already an active race
+      const existingActiveRace = await prisma.race.findFirst({
+        where: {
+          roomId: room.id,
+          isActive: true,
+        },
+      });
 
-// // Deactivate a room (admin function)
-// RoomRouter.put("/:id/deactivate", authMiddleware, async (req: Request, res: Response) => {
-//   try {
-//     const { id } = req.params;
+      if (existingActiveRace) {
+        res.status(400).json({
+          success: false,
+          message: "An active race already exists in this room",
+          raceId: existingActiveRace.id,
+        });
+        return;
+      }
 
-//     // Check if room exists and user is admin
-//     const room = await prisma.room.findUnique({
-//       where: {
-//         id,
-//       },
-//     });
+      // Create a sample text for racing (in production, you'd have a proper text selection)
+      const sampleText =
+        validatedData.textContent ||
+        "The quick brown fox jumps over the lazy dog. This is a sample text for typing race.";
 
-//     if (!room) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Room not found",
-//       });
-//     }
+      // Create a new race
+      const newRace = await prisma.race.create({
+        data: {
+          roomId: room.id,
+          textContent: sampleText,
+          isActive: true,
+        },
+      });
 
-//     // Verify if the user is the admin of the room
-//     if (room.adminId !== req.user.id) {
-//       return res.status(403).json({
-//         success: false,
-//         message: "Only room admin can deactivate the room",
-//       });
-//     }
+      res.status(201).json({
+        success: true,
+        data: {
+          race: {
+            id: newRace.id,
+            startTime: newRace.startTime,
+            textContent: newRace.textContent,
+          },
+        },
+        message: "Successfully created new race",
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid race creation request",
+          errors: error.errors,
+        });
+        return;
+      }
 
-//     // End any active races in the room
-//     await prisma.race.updateMany({
-//       where: {
-//         roomId: id,
-//         endTime: null,
-//       },
-//       data: {
-//         endTime: new Date(),
-//       },
-//     });
+      res.status(500).json({
+        success: false,
+        message: "Failed to create race",
+        error:
+          error instanceof Error ? error.message : "An unknown error occurred",
+      });
+    }
+  }
+);
 
-//     // Deactivate the room
-//     const updatedRoom = await prisma.room.update({
-//       where: {
-//         id,
-//       },
-//       data: {
-//         isActive: false,
-//       },
-//     });
+// Leave a room and race
+RoomRouter.post(
+  "/leave/:roomId",
+  authMiddleware,
+  async (req: Request, res: Response) => {
+    try {
+      const roomId = req.params.roomId;
+      const userId = req.user?.userId as string;
 
-//     return res.status(200).json({
-//       success: true,
-//       data: {
-//         id: updatedRoom.id,
-//         name: updatedRoom.name,
-//         isActive: updatedRoom.isActive,
-//       },
-//       message: "Room deactivated successfully",
-//     });
-//   } catch (error) {
-//     return res.status(500).json({
-//       success: false,
-//       message: "Failed to deactivate room",
-//       error: error.message,
-//     });
-//   }
-// });
+      // Check if room exists
+      const room = await prisma.room.findUnique({
+        where: {
+          id: roomId,
+          isActive: true,
+        },
+      });
+
+      if (!room) {
+        res.status(404).json({
+          success: false,
+          message: "Room not found or inactive",
+        });
+        return;
+      }
+
+      // Check if user is in an active race in this room
+      const activeRace = await prisma.race.findFirst({
+        where: {
+          roomId: roomId,
+          isActive: true,
+        },
+      });
+
+      if (activeRace) {
+        // If user is in an active race, we might want to record their exit or update stats
+        // This depends on your application logic - for now we'll just acknowledge it
+        console.log(`User ${userId} left active race ${activeRace.id}`);
+      }
+
+      // Get all participants in the room (users who have race history in this room)
+      const participants = await prisma.raceHistory.findMany({
+        where: {
+          roomId: roomId,
+        },
+        select: {
+          userId: true,
+        },
+        distinct: ["userId"],
+      });
+
+      // Filter out the leaving user
+      const otherParticipants = participants
+        .filter((p) => p.userId !== userId)
+        .map((p) => p.userId);
+
+      // Case: User is the admin and there are other participants
+      if (room.adminId === userId && otherParticipants.length > 0) {
+        // Randomly select a new admin from other participants
+        const newAdminIndex = Math.floor(
+          Math.random() * otherParticipants.length
+        );
+        const newAdminId = otherParticipants[newAdminIndex];
+
+        // Update the room with the new admin
+        await prisma.room.update({
+          where: {
+            id: roomId,
+          },
+          data: {
+            adminId: newAdminId,
+          },
+        });
+
+        res.status(200).json({
+          success: true,
+          message:
+            "You have left the room. Admin rights transferred to another participant.",
+        });
+        return;
+      }
+      // Case: User is the last participant or the admin with no other participants
+      else if (
+        otherParticipants.length === 0 ||
+        (room.adminId === userId && otherParticipants.length === 0)
+      ) {
+        // Delete the room and all associated races and race histories (cascading delete will handle this)
+        await prisma.room.delete({
+          where: {
+            id: roomId,
+          },
+        });
+
+        res.status(200).json({
+          success: true,
+          message: "You were the last participant. Room has been deleted.",
+        });
+        return;
+      }
+      // Case: Regular participant leaving
+      else {
+        res.status(200).json({
+          success: true,
+          message: "You have left the room.",
+        });
+        return;
+      }
+    } catch (error) {
+      console.error("Error leaving room:", error);
+
+      res.status(500).json({
+        success: false,
+        message: "Failed to leave room",
+        error:
+          error instanceof Error ? error.message : "An unknown error occurred",
+      });
+    }
+  }
+);
+
+// Deactivate a room (admin function)
