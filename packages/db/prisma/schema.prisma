@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -23,12 +17,17 @@ model User {
 
   raceHistories    RaceHistory[]
   practiceSessions Practice[]
+  adminRoom        Room[]
 }
 
 model Room {
   id        String   @id @default(uuid())
   name      String   @unique
+  adminId   String
+  admin     User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
   isActive  Boolean  @default(true)
+  isPrivate Boolean  @default(false) // New field to determine if room is private
+  password  String? // Optional password for private rooms
   createdAt DateTime @default(now())
 
   races       Race[]
@@ -36,14 +35,18 @@ model Room {
 }
 
 model Race {
-  id        String    @id @default(uuid())
-  roomId    String
-  room      Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  startTime DateTime  @default(now())
-  endTime   DateTime?
-  createdAt DateTime  @default(now())
+  id          String    @id @default(uuid())
+  roomId      String
+  room        Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  startTime   DateTime  @default(now())
+  endTime     DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  textContent String // The text being raced on
 
   raceHistories RaceHistory[]
+
+  @@unique([roomId, isActive], name: "uniqueActiveRacePerRoom")
 }
 
 model RaceHistory {

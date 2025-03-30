@@ -30,8 +30,10 @@ export const UserSchema = z.object({
 //   }
 
 export const RoomSchema = z.object({
-  name: z.string(),
+  name: z.string().min(3, "Room name must be at least 3 characters long"),
   isActive: z.boolean().default(true),
+  isPrivate: z.boolean().default(false),
+  password: z.string().optional(),
 });
 
 //   model Race {
@@ -49,6 +51,17 @@ export const RaceSchema = z.object({
   roomId: z.string(),
   startTime: z.date().default(new Date()),
   endTime: z.date().nullable(),
+  textContent: z.string(),
+});
+
+export const JoinRoomSchema = z.object({
+  roomId: z.string(),
+  password: z.string().optional(),
+});
+
+export const CreateRaceSchema = z.object({
+  roomId: z.string().uuid(),
+  textContent: z.string().optional(),
 });
 
 //   model RaceHistory {

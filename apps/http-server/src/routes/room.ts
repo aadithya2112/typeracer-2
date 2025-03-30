@@ -66,6 +66,7 @@ RoomRouter.post("/", authMiddleware, async (req: Request, res: Response) => {
 
 // Get a list of active rooms
 RoomRouter.get("/", async (req: Request, res: Response) => {
+  console.log("/rooms endpoint hit");
   try {
     const rooms = await prisma.room.findMany({
       where: {
