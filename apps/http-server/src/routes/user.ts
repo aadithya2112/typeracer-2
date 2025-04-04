@@ -166,6 +166,7 @@ UserRouter.post("/signin", async (req: Request, res: Response) => {
   }
 });
 
+// TODO: Return average wpm, highest wpm, accuracy and number of races
 UserRouter.get("/me", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
