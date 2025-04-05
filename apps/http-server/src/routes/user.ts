@@ -10,7 +10,7 @@ dotenv.config();
 
 // JWT Secret should be in environment variables in production
 const JWT_SECRET = process.env.JWT_SECRET as string;
-const JWT_EXPIRY = "24h";
+// const JWT_EXPIRY = "24h";
 
 export const UserRouter: Router = Router();
 
@@ -72,8 +72,7 @@ UserRouter.post("/signup", async (req: Request, res: Response) => {
         userId: newUser.id,
         email: newUser.email,
       },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRY }
+      JWT_SECRET
     );
 
     // Return the created user (excluding password) with token
@@ -144,8 +143,7 @@ UserRouter.post("/signin", async (req: Request, res: Response) => {
         userId: user.id,
         email: user.email,
       },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRY }
+      JWT_SECRET
     );
 
     // Return user data (excluding password) with token
@@ -208,3 +206,5 @@ UserRouter.get("/me", authMiddleware, async (req: Request, res: Response) => {
     });
   }
 });
+
+// TODO: Add a route to save practice session data

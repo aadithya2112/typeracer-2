@@ -34,7 +34,6 @@ export default function Dashboard() {
   const [roomName, setRoomName] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [roomPassword, setRoomPassword] = useState("");
-  const [userData, setUserData] = useState(null);
   const [user, setUser] = useState({
     id: "user-123",
     name: "User",
@@ -164,6 +163,7 @@ export default function Dashboard() {
       }
 
       const roomId = res.data.data.id;
+      console.log("Room created with ID:", roomId);
       router.push(`/dashboard/room/${roomId}`);
       setIsCreateRoomOpen(false);
     } catch (error) {

@@ -1,0 +1,5 @@
+/* Custom progress bar styling */
+.custom-progress[role="progressbar"] > div {
+    background-color: #009965 !important; /* Your accent color */
+    transition: width 0.3s ease;
+  }
