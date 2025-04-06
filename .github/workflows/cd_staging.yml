@@ -15,12 +15,4 @@ jobs:
         run: |
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/ssh_key
           chmod 600 ~/ssh_key
-          ssh -o StrictHostKeyChecking=no -i ~/ssh_key root@134.209.158.114 << 'EOF'
-            cd typeracer-2/
-            git pull
-            pnpm install
-            pnpm run build
-            pm2 restart fe-server
-            pm2 restart http-server
-            pm2 restart ws-server
-          EOF
+          ssh -o StrictHostKeyChecking=no -i ~/ssh_key root@134.209.158.114 - t "cd typeracer-2/ && git pull origin main && pnpm install && pnpm run build && pm2 restart fe-server && pm2 restart http-server && pm2 restart ws-server"
