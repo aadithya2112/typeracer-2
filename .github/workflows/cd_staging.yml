@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: SSH into server
         run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/ssh_key
+          printf "%s" "${{ secrets.SSH_PRIVATE_KEY }}" > ~/ssh_key
           chmod 600 ~/ssh_key
           ssh -o StrictHostKeyChecking=no -i ~/ssh_key root@134.209.158.114 << 'EOF'
             cd typeracer-2/
